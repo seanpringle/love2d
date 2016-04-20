@@ -11,133 +11,187 @@ cfg = {
   },
 }
 
-terrain = { }
+HeightMap = { }
 
-function terrain.new (tx, ty)
+function HeightMap:new(x, y)
 
-  local map = {
-    x = tx,
-    y = ty,
-    zmin = 0,
-    zmax = 0,
-  }
+  local map = { x = x, y = y }
+  
+  setmetatable(map, self)
+  self.__index = self
 
-  for x = 1,tx do
-    map[x] = { }
-    for y = 1,ty do
-      map[x][y] = 0
-    end
-  end
+  map:init()
 
   return map
 end
 
-function terrain.template (map, src)
+function HeightMap:init()
 
-  map.zmin = 100
-  map.zmax = 0
+  self.zmin = 0
+  self.zmax = 0
 
-  for x = 1,map.x do
-    for y = 1,map.y do
-
-      local sx = math.min(src.x, math.max(1, math.ceil(src.x / map.x * x)));
-      local sy = math.min(src.y, math.max(1, math.ceil(src.y / map.y * y)));
-      map[x][y] = src[sx][sy]
-
-      map.zmin = math.min(map.zmin, map[x][y])
-      map.zmax = math.max(map.zmax, map[x][y])
+  for x = 1,self.x do
+    self[x] = { }
+    for y = 1,self.y do
+      self[x][y] = 0
     end
   end
 end
 
-function terrain.elevate (map, factor)
+function HeightMap:template(src)
 
-  map.zmin = 100
-  map.zmax = 0
+  self.zmin = 100
+  self.zmax = 0
 
-  for x = 1,map.x do
-    for y = 1,map.y do
-      map[x][y] = math.floor(map[x][y] * factor)
-      map.zmin = math.min(map.zmin, map[x][y])
-      map.zmax = math.max(map.zmax, map[x][y])
+  for x = 1,self.x do
+    for y = 1,self.y do
+
+      local sx = math.min(src.x, math.max(1, math.ceil(src.x / self.x * x)));
+      local sy = math.min(src.y, math.max(1, math.ceil(src.y / self.y * y)));
+      self[x][y] = src[sx][sy]
+
+      self.zmin = math.min(self.zmin, self[x][y])
+      self.zmax = math.max(self.zmax, self[x][y])
     end
   end
 end
 
-function terrain.seed (map, seed, range)
+function HeightMap:elevate(factor)
+
+  self.zmin = 100
+  self.zmax = 0
+
+  for x = 1,self.x do
+    for y = 1,self.y do
+      self[x][y] = math.floor(self[x][y] * factor)
+      self.zmin = math.min(self.zmin, self[x][y])
+      self.zmax = math.max(self.zmax, self[x][y])
+    end
+  end
+end
+
+function HeightMap:seed(seed, range)
 
   love.math.setRandomSeed(seed)
 
-  map.zmin = 100
-  map.zmax = 0
+  self.zmin = 100
+  self.zmax = 0
 
-  for x = 1,map.x do
-    for y = 1,map.y do
-      map[x][y] = map[x][y] + math.floor(love.math.random(range))
-      map.zmin = math.min(map.zmin, map[x][y])
-      map.zmax = math.max(map.zmax, map[x][y])
+  for x = 1,self.x do
+    for y = 1,self.y do
+      self[x][y] = self[x][y] + math.floor(love.math.random(range))
+      self.zmin = math.min(self.zmin, self[x][y])
+      self.zmax = math.max(self.zmax, self[x][y])
     end
   end
 end
 
-function terrain.smooth(map)
+function HeightMap:smooth()
 
   local remap = { }
 
-  for x = 1,map.x do
+  for x = 1,self.x do
     remap[x] = { }
-    for y = 1,map.x do
-      remap[x][y] = map[x][y]
+    for y = 1,self.x do
+      remap[x][y] = self[x][y]
     end
   end
 
-  map.zmin = 100
-  map.zmax = 0
+  self.zmin = 100
+  self.zmax = 0
 
-  for x = 1,map.x do
+  for x = 1,self.x do
 
-    for y = 1,map.x do
+    for y = 1,self.x do
 
       local sibs = 1
-      local height = map[x][y]
+      local height = self[x][y]
 
-      if x >     1 and y >     1 then height = height + map[x-1][y-1] sibs = sibs+1 end
-      if x >     1               then height = height + map[x-1][y+0] sibs = sibs+1 end
-      if x >     1 and y < map.y then height = height + map[x-1][y+1] sibs = sibs+1 end
-      if               y >     1 then height = height + map[x+0][y-1] sibs = sibs+1 end
-      if               y < map.y then height = height + map[x+0][y+1] sibs = sibs+1 end
-      if x < map.x and y >     1 then height = height + map[x+1][y-1] sibs = sibs+1 end
-      if x < map.x               then height = height + map[x+1][y+0] sibs = sibs+1 end
-      if x < map.x and y < map.y then height = height + map[x+1][y+1] sibs = sibs+1 end
+      if x >      1 and y >      1 then height = height + self[x-1][y-1] sibs = sibs+1 end
+      if x >      1                then height = height + self[x-1][y+0] sibs = sibs+1 end
+      if x >      1 and y < self.y then height = height + self[x-1][y+1] sibs = sibs+1 end
+      if                y >      1 then height = height + self[x+0][y-1] sibs = sibs+1 end
+      if                y < self.y then height = height + self[x+0][y+1] sibs = sibs+1 end
+      if x < self.x and y >      1 then height = height + self[x+1][y-1] sibs = sibs+1 end
+      if x < self.x                then height = height + self[x+1][y+0] sibs = sibs+1 end
+      if x < self.x and y < self.y then height = height + self[x+1][y+1] sibs = sibs+1 end
 
       remap[x][y] = math.floor(height / sibs)
 
-      map.zmin = math.min(map.zmin, remap[x][y])
-      map.zmax = math.max(map.zmax, remap[x][y])
+      self.zmin = math.min(self.zmin, remap[x][y])
+      self.zmax = math.max(self.zmax, remap[x][y])
     end
   end
 
-  for x = 1,map.x do
-    for y = 1,map.x do
-      map[x][y] = remap[x][y] - map.zmin
+  for x = 1,self.x do
+    for y = 1,self.x do
+      self[x][y] = remap[x][y] - self.zmin
     end
   end
 
-  map.zmax = map.zmax - map.zmin
+  self.zmax = self.zmax - self.zmin
+end
+
+Unit = { }
+units = { }
+
+function Unit:new()
+  
+  local unit = { id = #units+1 }
+
+  setmetatable(unit, self)
+  self.__index = self
+
+  unit:init()
+
+  return unit
+end
+
+function Unit:init()
+  self.x = 1
+  self.y = 1
+  self.dx = 0
+  self.dy = 0
+end
+
+Immotile = Unit:new()
+
+function Immotile:new()
 
 end
 
-smap = terrain.new(cfg.map.x/10, cfg.map.y/10)
-terrain.seed(smap, cfg.seed, cfg.map.z)
-terrain.smooth(smap)
-terrain.elevate(smap, 1.5)
+Motile = Unit:new()
 
-map = terrain.new(cfg.map.x, cfg.map.y)
-terrain.template(map, smap)
-terrain.seed(map, cfg.seed, cfg.map.z)
+function Motile:init()
+
+end
+
+Group = { }
+groups = { }
+
+function Group:new(o)
+  
+  local group = { id = #groups+1 }
+
+  setmetatable(group, self)
+  self.__index = self
+
+  group:init()
+
+  return group
+end
+
+smap = HeightMap:new(cfg.map.x/10, cfg.map.y/10)
+smap:seed(cfg.seed, cfg.map.z)
+smap:smooth()
+smap:elevate(1.5)
+
+map = HeightMap:new(cfg.map.x, cfg.map.y)
+map:template(smap)
+map:seed(cfg.seed, cfg.map.z)
 
 while map.zmax > cfg.map.z do
-  terrain.smooth(map)
+  map:smooth()
 end
 
 cell = {
@@ -163,14 +217,40 @@ love.window.setMode(cell.px(map.x+1), cell.py(map.y+1), {
   highdpi = true,
 })
 
+camera = {
+  x = 0,
+  y = 0,
+  zoom = 1.0,
+}
+
 function love.draw()
+
+  love.graphics.translate(camera.x, camera.y)
+  love.graphics.scale(camera.zoom)
 
   for x = 1,map.x do
     for y = 1,map.y do
+      
       local z = map[x][y]
+      
       local r = 64 + z * 10
       local g = 64 + z * 10
       local b = 64 + z * 10
+
+      if z < 4 then
+        b = 255
+      end
+
+      if z > 8 then
+        r = r + 32
+        g = g + 32
+        b = b + 32
+      end
+
+      if z >= 4 and z <= 8 then
+        g = g + 32
+      end
+
       love.graphics.setColor(r, g, b, 255)
       love.graphics.rectangle("fill", cell.px(x), cell.py(y), cell.x, cell.y)
     end
