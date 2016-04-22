@@ -1,13 +1,15 @@
 cfg = {
   seed = 1000,
   cell = {
-    x = 10,
-    y = 9,
+    x = 5,
+    y = 4,
   },
   map = {
-    x = 100,
-    y = 100,
+    x = 200,
+    y = 200,
     z = 10,
+    sealevel = 3,
+    snowline = 9,
   },
 }
 
@@ -15,8 +17,8 @@ HeightMap = { }
 
 function HeightMap:new(x, y)
 
-  local map = { x = x, y = y }
-  
+  local map = { x = math.floor(x), y = math.floor(y) }
+
   setmetatable(map, self)
   self.__index = self
 
@@ -136,7 +138,7 @@ Unit = { }
 units = { }
 
 function Unit:new()
-  
+
   local unit = { id = #units+1 }
 
   setmetatable(unit, self)
@@ -170,7 +172,7 @@ Group = { }
 groups = { }
 
 function Group:new(o)
-  
+
   local group = { id = #groups+1 }
 
   setmetatable(group, self)
@@ -181,18 +183,29 @@ function Group:new(o)
   return group
 end
 
-smap = HeightMap:new(cfg.map.x/10, cfg.map.y/10)
-smap:seed(cfg.seed, cfg.map.z)
-smap:smooth()
-smap:elevate(1.5)
+smap1 = HeightMap:new(cfg.map.x/16, cfg.map.y/16)
+smap1:seed(cfg.seed, cfg.map.z)
+smap1:smooth()
+
+smap2 = HeightMap:new(cfg.map.x/8, cfg.map.y/8)
+smap2:template(smap1)
+smap2:seed(cfg.seed, cfg.map.z/2)
+smap2:smooth()
+
+smap3 = HeightMap:new(cfg.map.x/4, cfg.map.y/4)
+smap3:template(smap2)
+smap3:seed(cfg.seed, cfg.map.z/4)
+smap3:smooth()
 
 map = HeightMap:new(cfg.map.x, cfg.map.y)
-map:template(smap)
-map:seed(cfg.seed, cfg.map.z)
+map:template(smap3)
+map:seed(cfg.seed, cfg.map.z/6)
+map:elevate(1.2)
+map:smooth()
+map:smooth()
+--map:smooth()
 
-while map.zmax > cfg.map.z do
-  map:smooth()
-end
+print(map.zmin.." "..map.zmax)
 
 cell = {
   x = cfg.cell.x,
@@ -200,14 +213,14 @@ cell = {
 }
 
 cell.px = function(x)
-  return cell.x * (x-1)
+  return cell.x * x
 end
 
 cell.py = function(y)
-  return cell.y * (y-1)
+  return cell.y * y
 end
 
-love.window.setMode(cell.px(map.x+1), cell.py(map.y+1), {
+love.window.setMode(cell.px(map.x), cell.py(map.y), {
   fullscreen = false,
   vsync = true,
   msaa = 2,
@@ -223,36 +236,83 @@ camera = {
   zoom = 1.0,
 }
 
-function love.draw()
+function love.update()
 
-  love.graphics.translate(camera.x, camera.y)
-  love.graphics.scale(camera.zoom)
+  -- zoom
+  if love.keyboard.isDown("e") then
+    camera.zoom = math.min(4, camera.zoom+0.1)
+  elseif love.keyboard.isDown("q") then
+    camera.zoom = math.max(1, camera.zoom-0.1)
+  end
+
+  -- move horiz
+  if love.keyboard.isDown("a") then
+    camera.x = math.max(0, camera.x-cfg.cell.x)
+  elseif love.keyboard.isDown("d") then
+    camera.x = math.min(map.x-1, camera.x+cfg.cell.x)
+  end
+
+  -- move vert
+  if love.keyboard.isDown("w") then
+    camera.y = math.max(0, camera.y-cfg.cell.y)
+  elseif love.keyboard.isDown("s") then
+    camera.y = math.min(map.y-1, camera.y+cfg.cell.y)
+  end
+
+end
+
+map.canvas = nil
+
+function map_render()
+
+  map.canvas = love.graphics.newCanvas(cell.px(map.x), cell.py(map.y))
+  map.canvas:setFilter("linear", "nearest")
+
+  love.graphics.setCanvas(map.canvas)
+  love.graphics.clear()
 
   for x = 1,map.x do
     for y = 1,map.y do
-      
+
       local z = map[x][y]
-      
+
       local r = 64 + z * 10
       local g = 64 + z * 10
       local b = 64 + z * 10
 
-      if z < 4 then
+      if z <= cfg.map.sealevel then
         b = 255
       end
 
-      if z > 8 then
+      if z >= cfg.map.snowline then
         r = r + 32
         g = g + 32
         b = b + 32
       end
 
-      if z >= 4 and z <= 8 then
+      if z > cfg.map.sealevel and z < cfg.map.snowline then
         g = g + 32
       end
 
       love.graphics.setColor(r, g, b, 255)
-      love.graphics.rectangle("fill", cell.px(x), cell.py(y), cell.x, cell.y)
+      love.graphics.rectangle("fill", cell.px(x-1), cell.py(y-1), cell.x, cell.y)
     end
   end
+
+  love.graphics.setCanvas()
+end
+
+map_render()
+
+function love.draw()
+
+  love.graphics.translate(cell.px(-camera.x*camera.zoom), cell.py(-camera.y*camera.zoom))
+  love.graphics.scale(camera.zoom)
+
+  love.graphics.clear()
+  love.graphics.setColor(255, 255, 255, 255)
+  love.graphics.setBackgroundColor(0, 0, 0, 255)
+  love.graphics.setBlendMode("alpha", "premultiplied")
+  love.graphics.draw(map.canvas)
+
 end
